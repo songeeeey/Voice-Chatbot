@@ -8,12 +8,12 @@ import streamlit as st
 load_dotenv()
 client = OpenAI()
 
+
 # ---------------------------------------------------------------------------
 # 1. STT (음성 -> 텍스트)
 def speech_to_text():
     recognizer = sr.Recognizer()
     with sr.Microphone() as source:
-        st.info("🎤 말을 하세요...")
         audio = recognizer.listen(source)
 
     try:
@@ -63,7 +63,6 @@ def ask_pet(user_text, pet_type, time_set, how_feel):
 
 # ---------------------------------------------------------------------------
 # 3. TTS (텍스트 -> 음성)
-
 def text_to_speech(text, filename="tts_output.mp3"):
     # TTS 생성 및 파일로 저장
     with client.audio.speech.with_streaming_response.create(
@@ -115,21 +114,39 @@ for msg in st.session_state["messages"]:
 # 음성 입력 + GPT + TTS
 if st.session_state["started"]:
     st.write("⬇️ 말하기 버튼으로 말을 걸어주세요. '안녕 내일 보자'👋라고 하면 대화가 종료됩니다.")
-
+    
     if st.button("👉 말하기"):
+        user_msg_placeholder = st.empty()
+        assistant_msg_placeholder = st.empty()
+
+        # 녹음 시작 안내 메시지
+        user_msg_placeholder.chat_message("user", avatar="👤").markdown("🎤 말을 하세요...")
+
+        # STT 변환
         user_text = speech_to_text()
+
+        # 변환 완료 후 텍스트 반영
         if user_text:
+            user_msg_placeholder.chat_message("user", avatar="👤").markdown(user_text)
             st.session_state["messages"].append({"role": "user", "content": user_text})
 
-            if "안녕 내일 보자" in user_text.strip() :
-                goodbye_text = "다음에 또 만나! 👋"
+            # 대화 종료 조건
+            if "안녕 내일 보자" in user_text.strip():
+                goodbye_text = "다음에 또 만나요! 👋"
                 st.session_state["messages"].append({"role": "assistant", "content": goodbye_text})
+                assistant_msg_placeholder.chat_message("assistant", avatar=avatar).markdown(goodbye_text)
                 audio_file = text_to_speech(goodbye_text)
                 st.audio(audio_file, format="audio/mp3")
                 st.session_state["started"] = False
             else:
+                # 응답 생성 메시지
+                assistant_msg_placeholder.chat_message("assistant", avatar=avatar).markdown("💭 생각 중이에요...")
+                
                 reply = ask_pet(user_text, pet_type, time_set, how_feel)
                 st.session_state["messages"].append({"role": "assistant", "content": reply})
+                
+                # 응답 반영
+                assistant_msg_placeholder.chat_message("assistant", avatar=avatar).markdown(reply)
                 audio_file = text_to_speech(reply)
                 st.session_state["last_audio_file"] = audio_file
                 st.audio(st.session_state["last_audio_file"], format="audio/mp3")
